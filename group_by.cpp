@@ -1,5 +1,6 @@
 #include <Rcpp.h>
 #include <boost/unordered_map.hpp>
+#include <boost/unordered_set.hpp>
 #include <RcppParallel.h>
 
 // [[Rcpp::depends(BH,RcppParallel)]]
@@ -450,6 +451,93 @@ List make_index3( DataFrame data, CharacterVector by ){
 }
 
 
+// ----------- using manual threads 2
+
+template <typename Work>
+inline void index4_thread( void* data ){
+    Work* work = reinterpret_cast<Work*>(data) ;
+    work->process() ;    
+}
+       
+struct Index4Thread {
+public: 
+    IndexRange range ;
+    Visitors visitors;
+    VisitorSetHasher<Visitors> hasher ; 
+    VisitorSetEqualPredicate<Visitors> equal ;
+    Map map ;
+    
+    Index4Thread( IndexRange range_, DataFrame data, CharacterVector by) : 
+        range(range_), visitors(data, by), hasher(visitors), equal(visitors), 
+        map(1024, hasher, visitors){}
+                      
+    void process(){
+        size_t e = range.end() ;
+        for( size_t i = range.begin(); i<e; i++) map[i].push_back(i) ;   
+    }
+} ;
+
+
+// [[Rcpp::export]]
+List make_index4( DataFrame data, CharacterVector by ){
+    using namespace tthread;
+      
+    IndexRange inputRange(0, data.nrows());
+    std::vector<IndexRange> ranges = splitInputRange(inputRange, 1);
+    int nthreads = ranges.size();
+    
+    Visitors visitors(data, by);
+    VisitorSetHasher<Visitors> hasher(visitors) ; 
+    VisitorSetEqualPredicate<Visitors> equal(visitors) ;
+    
+    std::vector<thread*> threads;
+    std::vector<Index4Thread*> workers ;
+    for (std::size_t i = 0; i<ranges.size(); ++i) {
+        Index4Thread* w = new Index4Thread(ranges[i], data, by) ;
+        workers.push_back(w) ;
+        threads.push_back(new thread(index4_thread<Index4Thread>, w));   
+    }
+    
+    typedef boost::unordered_map<int, std::vector<int>, VisitorSetHasher<Visitors>, VisitorSetEqualPredicate<Visitors> > CountMap ;
+    CountMap count_map(1024, hasher, equal) ;
+    
+    for (std::size_t i = 0; i<threads.size(); ++i) {
+       threads[i]->join();
+       
+       Map& map = workers[i]->map ;
+       Map::const_iterator start = map.begin() ;
+       Map::const_iterator end   = map.end() ;
+       for( ; start != end; ++start ){
+            int key = start->first ;
+            CountMap::iterator it = count_map.find(key) ;
+            if( it == count_map.end() ){
+                it = count_map.insert( std::make_pair(key, std::vector<int>(nthreads) ) ).first;
+                (it->second)[i] = start->second.size() ;
+            } else {
+                std::vector<int>& v = it->second ;
+                v[i] = v[i-1] + start->second.size() ;
+            }    
+       }
+       
+    }
+    
+    int nout = count_map.size() ;
+    List out(nout) ;
+    CountMap::const_iterator count_it = count_map.begin() ;
+    for(int i=0; i<nout; i++, ++count_it){
+        out[i] = IntegerVector(count_it->second[nthreads-1]) ;
+    }
+    
+    for (std::size_t i = 0; i<threads.size(); ++i) {
+       delete threads[i];
+       delete workers[i];
+    }
+    
+    return out ;
+}
+
+
+
 
 
 /*** R
@@ -480,8 +568,9 @@ List make_index3( DataFrame data, CharacterVector by ){
         serial = make_index_serial( babynames, c("sex", "name") ), 
         parallelReduce = make_index_parallel( babynames, c("sex", "name") ),
         tbb_concurrent = make_index_concurrent_hash_map( babynames, c("sex", "name") ),
-        manual_threads = make_index3( babynames, c("sex", "name" ) ),
-        times  = 10
+        impl3 = make_index3( babynames, c("sex", "name" ) ),
+        impl4 = make_index4( babynames, c("sex", "name" ) ),
+        times  = 2
     )
     
 */
