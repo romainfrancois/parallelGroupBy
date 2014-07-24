@@ -2,11 +2,37 @@
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
 #include <RcppParallel.h>
+#include <Rcpp/Benchmark/Timer.h>
 
 // [[Rcpp::depends(BH,RcppParallel)]]
 
 using namespace Rcpp ;
 using namespace RcppParallel;
+
+class TimeTracker { 
+public:              
+    TimeTracker(){}
+    
+    inline operator SEXP(){
+        size_t n = steps.size();
+        NumericVector out(n);
+        CharacterVector names(n);
+        for (size_t i=0; i<n; i++) {
+            names[i] = steps[i].first;
+            out[i] = steps[i].second;
+        }
+        out.attr("names") = names;
+        return out;   
+    }
+    
+    void step( const char* name ){
+        steps.push_back( std::make_pair( name, (double)get_nanotime() ) ) ;    
+    }
+    
+private:
+    std::vector<std::pair<std::string,double> > steps ;    
+    
+} ;
 
 namespace dplyr{  
 
@@ -221,6 +247,8 @@ typedef boost::unordered_map<int, std::vector<int>,
 
 // [[Rcpp::export]]
 List make_index_serial( DataFrame data, CharacterVector by ){
+    TimeTracker tracker ;
+    tracker.step("start") ;
     
     int n = data.nrows() ;
     Visitors visitors(data, by) ;
@@ -230,6 +258,7 @@ List make_index_serial( DataFrame data, CharacterVector by ){
     Map map(1024, hasher, equal);  
     for( int i=0; i<n; i++)
         map[i].push_back(i) ;
+    tracker.step("train") ;
     
     int ngroups = map.size() ;
     List indices(ngroups) ;
@@ -238,8 +267,9 @@ List make_index_serial( DataFrame data, CharacterVector by ){
     for( int i=0; i<ngroups; i++, ++it){
         indices[i] = it->second ;
     }
-
-    return indices ;
+    tracker.step("collect") ;
+    
+    return List::create( (SEXP)tracker, indices ) ;
 }
      
 
@@ -460,7 +490,6 @@ inline void index4_thread( void* data ){
 }
        
 struct Index4Thread {
-public: 
     IndexRange range ;
     Visitors visitors;
     VisitorSetHasher<Visitors> hasher ; 
@@ -477,18 +506,45 @@ public:
     }
 } ;
 
+typedef boost::unordered_map<int, std::vector<int>, VisitorSetHasher<Visitors>, VisitorSetEqualPredicate<Visitors> > CountMap ;
+    
+// struct OuputThread4 {
+//     Index4Thread& indexer ;
+//     CountMap& count_map ;
+//     
+//     OuputThread4( int idx, Index4Thread& indexer_, CountMap& count_map_, List res ) : 
+//         indexer(indexer_), count_map(count_map_) {}
+//     
+//     void process(){
+//         size_t e = indexer.range.end() ;
+//         for( size_t i = indexer.range.begin(); i < e; i++){
+//             CountMap::const_iterator it = count_map.find(i) ;
+//             std::vector<int>& positions = it->second ;
+//             IntegerVector v = res[
+//         }
+//     }
+//     
+// } ;
+
 
 // [[Rcpp::export]]
-List make_index4( DataFrame data, CharacterVector by ){
-    using namespace tthread;
-      
+List make_index4( DataFrame data, CharacterVector by ){    
+    using namespace tthread; 
+          
+    TimeTracker tracker ;
+    tracker.step("start") ;
+    
     IndexRange inputRange(0, data.nrows());
     std::vector<IndexRange> ranges = splitInputRange(inputRange, 1);
     int nthreads = ranges.size();
     
+    tracker.step("ranges") ;
+    
     Visitors visitors(data, by);
     VisitorSetHasher<Visitors> hasher(visitors) ; 
     VisitorSetEqualPredicate<Visitors> equal(visitors) ;
+    
+    tracker.step("visitors") ;
     
     std::vector<thread*> threads;
     std::vector<Index4Thread*> workers ;
@@ -497,12 +553,13 @@ List make_index4( DataFrame data, CharacterVector by ){
         workers.push_back(w) ;
         threads.push_back(new thread(index4_thread<Index4Thread>, w));   
     }
+    tracker.step("threads") ;
     
-    typedef boost::unordered_map<int, std::vector<int>, VisitorSetHasher<Visitors>, VisitorSetEqualPredicate<Visitors> > CountMap ;
     CountMap count_map(1024, hasher, equal) ;
     
     for (std::size_t i = 0; i<threads.size(); ++i) {
        threads[i]->join();
+       tracker.step("join") ;
        
        Map& map = workers[i]->map ;
        Map::const_iterator start = map.begin() ;
@@ -518,6 +575,7 @@ List make_index4( DataFrame data, CharacterVector by ){
                 v[i] = v[i-1] + start->second.size() ;
             }    
        }
+       tracker.step("count_map") ;
        
     }
     
@@ -527,17 +585,150 @@ List make_index4( DataFrame data, CharacterVector by ){
     for(int i=0; i<nout; i++, ++count_it){
         out[i] = IntegerVector(count_it->second[nthreads-1]) ;
     }
+    tracker.step( "structure" );
     
-    // TODO: actually fill these vectors, perhaps in separate threads
+    // std::vector<thread*> output_threads;
+    // std::vector<OuputThread4*> output_workers ;
+    // for (std::size_t i = 0; i<threads.size(); ++i) {
+    //     OuputThread4* w = new OuputThread4() ;
+    //     output_workers.push_back(w) ;
+    //     threads.push_back(new thread(index4_thread<OuputThread4>, w));   
+    // }      
     
     for (std::size_t i = 0; i<threads.size(); ++i) {
        delete threads[i];
        delete workers[i];
+    }        
+    
+    tracker.step( "delete" ) ;
+    
+    return List::create( (SEXP)tracker, out ) ;
+}
+   
+
+struct CalculateHash : public Worker {
+    Visitors visitors ;
+    VisitorSetHasher<Visitors> hasher ; 
+    
+    std::vector<size_t>& hashes ; 
+    
+    CalculateHash(DataFrame data, CharacterVector by, std::vector<size_t>& hashes_) : 
+        visitors(data,by), hasher(visitors), hashes(hashes_){}
+        
+    void operator()(std::size_t begin, std::size_t end) {
+        for( int i=begin; i<end; i++){
+            hashes[i] = hasher(i) ;
+        }
     }
     
-    return out ;
-}
+} ;     
 
+// [[Rcpp::export]]
+List make_index5( DataFrame data, CharacterVector by ){
+    TimeTracker tracker ;
+    tracker.step("start") ;
+    
+    int nr = data.nrows() ;
+    std::vector<size_t> hashes(nr) ;
+    CalculateHash calc(data, by, hashes) ;
+    parallelFor( 0, nr, calc ) ;
+    
+    tracker.step( "hashes" ) ;
+    
+    Visitors visitors(data, by) ;
+    
+    IntegerVector positions(nr) ; int* ptr = positions.begin() ;
+    std::vector<int> group_sizes ;
+    std::vector<size_t> group_hashes ;
+    int ngroups = 0 ;
+    
+    tracker.step( "data" ) ;
+    
+    for(int i=0; i<nr; i++){
+        Rprintf( "-" ) ;
+        size_t h = hashes[i] ;
+        
+        // find the first group with same hash and equal
+        int pos = 0 ;
+        int g = 0 ;
+        for( ; g<ngroups; g++){ 
+            pos += group_sizes[g] ;
+            
+            if( group_hashes[g] == h && visitors.equal(ptr[pos], i) ) {
+                std::memmove( 
+                    ptr + pos + 1, 
+                    ptr + pos, 
+                    sizeof(int) * ( i - pos )
+                    ) ;  
+                
+                ptr[pos] = i ;
+                group_sizes[g]++ ;
+                break ; 
+            }
+        }
+        
+        if( g == ngroups ){
+            // reach the end, just create a new group
+            group_hashes.push_back(h) ;
+            group_sizes.push_back(1) ;
+            ptr[pos] = i ;
+            ngroups++ ;
+        }
+        
+    }
+    
+    tracker.step( "populate" ) ;
+    
+    return List::create( (SEXP)tracker, positions, wrap(group_sizes), wrap(hashes) ) ;
+}
+                  
+struct DummyHasher {
+    std::vector<size_t> data ;
+    DummyHasher( std::vector<size_t> data_ ) : data(data_){} 
+    inline size_t operator()(int i) const {
+        return data[i] ;
+    }  
+} ;
+
+typedef boost::unordered_map<int, std::vector<int>, 
+    DummyHasher, 
+    VisitorSetEqualPredicate<Visitors> > Map2 ;
+
+// [[Rcpp::export]]
+List make_index6( DataFrame data, CharacterVector by ){
+    TimeTracker tracker ;
+    tracker.step("start") ;
+    
+    int nr = data.nrows() ;
+    std::vector<size_t> hashes(nr) ;
+    CalculateHash calc(data, by, hashes) ;
+    parallelFor( 0, nr, calc ) ;
+    
+    tracker.step( "hashes" ) ;
+    
+    Visitors visitors(data, by) ;
+    VisitorSetEqualPredicate<Visitors> equal(visitors) ;
+    DummyHasher hasher(hashes) ;
+    
+    Map2 map(1024, hasher, equal);  
+    for( int i=0; i<nr; i++)
+        map[i].push_back(i) ;
+    
+    tracker.step( "train" );
+    
+    int ngroups = map.size() ;
+    List indices(ngroups) ;
+    
+    Map2::const_iterator it = map.begin() ;
+    for( int i=0; i<ngroups; i++, ++it){
+        indices[i] = it->second ;
+    }
+    
+    tracker.step( "collect" ) ;
+    
+    return List::create( (SEXP)tracker, indices ) ;
+}
+ 
 
 /*** R
     require(dplyr)
@@ -553,24 +744,46 @@ List make_index4( DataFrame data, CharacterVector by ){
         x[o]
     }
     
-    res_serial <- reorg(make_index_serial( babynames, c("sex", "name") ))
-    res_parallelReduce <- reorg(make_index_parallel( babynames, c("sex", "name") ))
-    res_concurrent <- reorg(make_index_concurrent_hash_map( babynames, c("sex", "name") ))
-    res3 <- reorg(make_index3( babynames, c("sex", "name") ))
+    # res_serial <- reorg(make_index_serial( babynames, c("sex", "name") ))
+    # res_parallelReduce <- reorg(make_index_parallel( babynames, c("sex", "name") ))
+    # res_concurrent <- reorg(make_index_concurrent_hash_map( babynames, c("sex", "name") ))
+    # res3 <- reorg(make_index3( babynames, c("sex", "name") ))
     
-    identical( res_serial, res_parallelReduce )
-    identical( res_serial, res_concurrent )
-    identical( res_serial, res3 )
+    # identical( res_serial, res_parallelReduce )
+    # identical( res_serial, res_concurrent )
+    # identical( res_serial, res3 )
+    # 
+    # microbenchmark( 
+    #     # dplyr  = dplyr::group_by(babynames, sex, name) , 
+    #     serial = make_index_serial( babynames, c("sex", "name") ), 
+    #     parallelReduce = make_index_parallel( babynames, c("sex", "name") ),
+    #     tbb_concurrent = make_index_concurrent_hash_map( babynames, c("sex", "name") ),
+    #     impl3 = make_index3( babynames, c("sex", "name" ) ),
+    #     impl4 = make_index4( babynames, c("sex", "name" ) ),
+    #     times  = 2
+    # )
     
-    microbenchmark( 
-        # dplyr  = dplyr::group_by(babynames, sex, name) , 
-        serial = make_index_serial( babynames, c("sex", "name") ), 
-        parallelReduce = make_index_parallel( babynames, c("sex", "name") ),
-        tbb_concurrent = make_index_concurrent_hash_map( babynames, c("sex", "name") ),
-        impl3 = make_index3( babynames, c("sex", "name" ) ),
-        impl4 = make_index4( babynames, c("sex", "name" ) ),
-        times  = 2
-    )
+    # res1 <- make_index_serial( babynames, c("sex", "name" ) )
+    
+    f <- function(times){
+        times <- ( times - times[1] ) / 1e6
+        times
+    }
+    
+    t(sapply(1:5, function(i){
+        res6 <- make_index6( babynames, c("sex", "name" ) )
+        f(res6[[1]])
+    }))
+    
+    t(sapply(1:5, function(i){
+        res1 <- make_index_serial( babynames, c("sex", "name" ) )
+        f(res1[[1]])
+    }))
+    
+    # data <- data.frame( x = c(1,1,2,2), y = c(1,1,2,2) )
+    # make_index5( data, c("x", "y") )
+    
+    # res5[[2]]
     
 */
 
