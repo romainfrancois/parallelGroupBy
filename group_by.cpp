@@ -354,6 +354,59 @@ List make_index_concurrent_hash_map( DataFrame data, CharacterVector by ){
     return indexer.get() ;
 }
 
+template <typename Work>
+inline void index3_thread( void* data ){
+    Work* work = reinterpret_cast<Work*>(data) ;
+    work->process() ;    
+}
+       
+struct Index3Thread {
+public: 
+    IndexRange range ;
+    Visitors visitors;
+    VisitorSetHasher<Visitors> hasher ; 
+    VisitorSetEqualPredicate<Visitors> equal ;
+    Map map ;
+    
+    Index3Thread( IndexRange range_, DataFrame data, CharacterVector by) : 
+        range(range_), visitors(data, by), hasher(visitors), equal(visitors), 
+        map(1024, hasher, visitors) {}
+                      
+    void process(){
+        size_t e = range.end() ;
+        for( size_t i = range.begin(); i<e; i++) map[i].push_back(i) ;    
+    }
+} ;
+
+
+// [[Rcpp::export]]
+List make_index_threads( DataFrame data, CharacterVector by ){
+    using namespace tthread;
+      
+    IndexRange inputRange(0, data.nrows());
+    std::vector<IndexRange> ranges = splitInputRange(inputRange, 1);
+    
+    // create threads
+    std::vector<thread*> threads;
+    std::vector<Index3Thread*> workers ;
+    for (std::size_t i = 0; i<ranges.size(); ++i) {
+        Index3Thread* w = new Index3Thread(ranges[i], data, by) ;
+        workers.push_back(w) ;
+        threads.push_back(new thread(index3_thread<Index3Thread>, w));   
+    }
+    
+    // join and delete them
+    for (std::size_t i = 0; i<threads.size(); ++i) {
+       threads[i]->join();
+       delete threads[i];
+       delete workers[i];
+    }
+    
+    return List::create(1) ;
+}
+
+
+
 
 /*** R
     require(dplyr)
@@ -381,6 +434,7 @@ List make_index_concurrent_hash_map( DataFrame data, CharacterVector by ){
         serial = make_index_serial( babynames, c("sex", "name") ), 
         parallelReduce = make_index_parallel( babynames, c("sex", "name") ),
         tbb_concurrent = make_index_concurrent_hash_map( babynames, c("sex", "name") ),
+        manual_threads = make_index_threads( babynames, c("sex", "name" ) ),
         times  = 10
     )
     
