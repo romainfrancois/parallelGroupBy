@@ -1,0 +1,54 @@
+
+> require(dplyr)
+
+> require(babynames)
+
+> require(microbenchmark)
+
+> require(RcppParallel)
+
+> force(babynames)
+Source: local data frame [1,792,091 x 5]
+
+   year sex      name    n       prop
+1  1880   F      Mary 7065 0.07238359
+2  1880   F      Anna 2604 0.02667896
+3  1880   F      Emma 2003 0.02052149
+4  1880   F Elizabeth 1939 0.01986579
+5  1880   F    Minnie 1746 0.01788843
+6  1880   F  Margaret 1578 0.01616720
+7  1880   F       Ida 1472 0.01508119
+8  1880   F     Alice 1414 0.01448696
+9  1880   F    Bertha 1320 0.01352390
+10 1880   F     Sarah 1288 0.01319605
+..  ... ...       ...  ...        ...
+
+> reorg <- function(x) {
++     x <- lapply(x, sort)
++     o <- order(sapply(x, "[[", 1))
++     x[o]
++ }
+
+> res_serial <- reorg(make_index_serial(babynames, c("sex", 
++     "name")))
+
+> res_parallelReduce <- reorg(make_index_parallel(babynames, 
++     c("sex", "name")))
+
+> res_concurrent <- reorg(make_index_concurrent_hash_map(babynames, 
++     c("sex", "name")))
+
+> identical(res_serial, res_parallelReduce)
+[1] TRUE
+
+> identical(res_serial, res_concurrent)
+[1] TRUE
+
+> microbenchmark(serial = make_index_serial(babynames, 
++     c("sex", "name")), parallelReduce = make_index_parallel(babynames, 
++     c("sex", "name ..." ... [TRUNCATED] 
+Unit: milliseconds
+           expr      min       lq   median       uq      max neval
+         serial 369.1850 370.5626 377.2610 384.4180 432.7330    10
+ parallelReduce 352.6023 416.1161 457.9347 485.4548 487.0545    10
+ tbb_concurrent 293.9244 304.2952 315.6262 322.2368 332.9673    10
