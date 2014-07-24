@@ -528,6 +528,8 @@ List make_index4( DataFrame data, CharacterVector by ){
         out[i] = IntegerVector(count_it->second[nthreads-1]) ;
     }
     
+    // TODO: actually fill these vectors, perhaps in separate threads
+    
     for (std::size_t i = 0; i<threads.size(); ++i) {
        delete threads[i];
        delete workers[i];
@@ -535,9 +537,6 @@ List make_index4( DataFrame data, CharacterVector by ){
     
     return out ;
 }
-
-
-
 
 
 /*** R
