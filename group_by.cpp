@@ -303,7 +303,51 @@ List make_index_parallel( DataFrame data, CharacterVector by ){
     return indexer.get() ;
 }
 
+typedef tbb::concurrent_unordered_map<
+    int, std::vector<int>, 
+    VisitorSetHasher<Visitors>, 
+    VisitorSetEqualPredicate<Visitors> 
+> ConcurrentMap ;
 
+
+struct IndexMaker2 : public Worker {
+    ConcurrentMap& map ;
+    
+    IndexMaker2( ConcurrentMap& map_ ) : 
+        map(map_){}
+        
+    IndexMaker2( const IndexMaker2& other, Split) : map(other.map){}
+        
+    void operator()(std::size_t begin, std::size_t end) {
+        for( size_t i =begin; i<end; i++) {
+            map[i].push_back(i) ;
+        }
+    }
+    
+    void join(const IndexMaker2&){}
+    
+    List get(){
+        return List::create(1) ;
+    }
+    
+} ;
+
+// [[Rcpp::export]]
+List make_index_concurrent_hash_map( DataFrame data, CharacterVector by ){
+    
+    int n = data.nrows() ;
+    
+    Visitors visitors(data, by) ;
+    VisitorSetHasher<Visitors> hasher(visitors) ; 
+    VisitorSetEqualPredicate<Visitors> equal(visitors) ;
+    ConcurrentMap map(1024, hasher, equal) ;
+    
+    IndexMaker2 indexer(map) ;
+    
+    parallelReduce(0, n, indexer) ;
+    
+    return indexer.get() ;
+}
 
 
 /*** R
@@ -318,6 +362,7 @@ List make_index_parallel( DataFrame data, CharacterVector by ){
         # dplyr  = dplyr::group_by(babynames, sex, name) , 
         serial = make_index_serial( babynames, c("sex", "name") ), 
         parallelReduce = make_index_parallel( babynames, c("sex", "name") ),
+        # tbb_concurrent_hash_map = make_index_concurrent_hash_map( babynames, c("sex", "name") ),
         times  = 5
     )
     
