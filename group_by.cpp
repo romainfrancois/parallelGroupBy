@@ -285,7 +285,6 @@ struct IndexMaker : public Worker {
         }
         return indices ;
         
-        return List::create(1) ;
     }
     
 } ;
@@ -304,7 +303,7 @@ List make_index_parallel( DataFrame data, CharacterVector by ){
 }
 
 typedef tbb::concurrent_unordered_map<
-    int, std::vector<int>, 
+    int, tbb::concurrent_vector<int>, 
     VisitorSetHasher<Visitors>, 
     VisitorSetEqualPredicate<Visitors> 
 > ConcurrentMap ;
@@ -324,10 +323,16 @@ struct IndexMaker2 : public Worker {
         }
     }
     
-    void join(const IndexMaker2&){}
-    
     List get(){
-        return List::create(1) ;
+        int ngroups = map.size() ;
+        List indices(ngroups) ;
+        
+        ConcurrentMap::const_iterator it = map.begin() ;
+        for( int i=0; i<ngroups; i++, ++it){
+            indices[i] = wrap( it->second.begin(), it->second.end() ) ;
+        }
+        return indices ;
+        
     }
     
 } ;
@@ -344,7 +349,7 @@ List make_index_concurrent_hash_map( DataFrame data, CharacterVector by ){
     
     IndexMaker2 indexer(map) ;
     
-    parallelReduce(0, n, indexer) ;
+    parallelFor(0, n, indexer) ;
     
     return indexer.get() ;
 }
@@ -358,12 +363,25 @@ List make_index_concurrent_hash_map( DataFrame data, CharacterVector by ){
     
     force(babynames)
     
+    reorg <- function(x){
+        x <- lapply(x, sort)
+        o <- order( sapply(x, "[[", 1 ) )
+        x[o]
+    }
+    
+    res_serial <- reorg(make_index_serial( babynames, c("sex", "name") ))
+    res_parallelReduce <- reorg(make_index_parallel( babynames, c("sex", "name") ))
+    res_concurrent <- reorg(make_index_concurrent_hash_map( babynames, c("sex", "name") ))
+    
+    identical( res_serial, res_parallelReduce )
+    identical( res_serial, res_concurrent )
+    
     microbenchmark( 
         # dplyr  = dplyr::group_by(babynames, sex, name) , 
         serial = make_index_serial( babynames, c("sex", "name") ), 
         parallelReduce = make_index_parallel( babynames, c("sex", "name") ),
-        # tbb_concurrent_hash_map = make_index_concurrent_hash_map( babynames, c("sex", "name") ),
-        times  = 5
+        tbb_concurrent = make_index_concurrent_hash_map( babynames, c("sex", "name") ),
+        times  = 10
     )
     
 */
