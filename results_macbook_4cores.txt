@@ -38,10 +38,15 @@ Source: local data frame [1,792,091 x 5]
 > res_concurrent <- reorg(make_index_concurrent_hash_map(babynames, 
 +     c("sex", "name")))
 
+> res3 <- reorg(make_index3(babynames, c("sex", "name")))
+
 > identical(res_serial, res_parallelReduce)
 [1] TRUE
 
 > identical(res_serial, res_concurrent)
+[1] TRUE
+
+> identical(res_serial, res3)
 [1] TRUE
 
 > microbenchmark(serial = make_index_serial(babynames, 
@@ -49,6 +54,7 @@ Source: local data frame [1,792,091 x 5]
 +     c("sex", "name ..." ... [TRUNCATED] 
 Unit: milliseconds
            expr      min       lq   median       uq      max neval
-         serial 369.1850 370.5626 377.2610 384.4180 432.7330    10
- parallelReduce 352.6023 416.1161 457.9347 485.4548 487.0545    10
- tbb_concurrent 293.9244 304.2952 315.6262 322.2368 332.9673    10
+         serial 379.1999 381.1741 388.4124 425.6933 611.7063    10
+ parallelReduce 395.9102 443.9184 456.1972 463.7663 492.2686    10
+ tbb_concurrent 290.3922 298.3837 301.1617 310.2014 322.3712    10
+ manual_threads 325.8073 332.4899 342.1273 364.9107 384.3732    10
