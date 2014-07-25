@@ -1,38 +1,14 @@
 #include <Rcpp.h>
+
+#include <TimeTracker.h>
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
 #include <RcppParallel.h>
-#include <Rcpp/Benchmark/Timer.h>
 
 // [[Rcpp::depends(BH,RcppParallel)]]
 
 using namespace Rcpp ;
 using namespace RcppParallel;
-
-class TimeTracker { 
-public:              
-    TimeTracker(){}
-    
-    inline operator SEXP(){
-        size_t n = steps.size();
-        NumericVector out(n);
-        CharacterVector names(n);
-        for (size_t i=0; i<n; i++) {
-            names[i] = steps[i].first;
-            out[i] = steps[i].second;
-        }
-        out.attr("names") = names;
-        return out;   
-    }
-    
-    void step( const char* name ){
-        steps.push_back( std::make_pair( name, (double)get_nanotime() ) ) ;    
-    }
-    
-private:
-    std::vector<std::pair<std::string,double> > steps ;    
-    
-} ;
 
 namespace dplyr{  
 
