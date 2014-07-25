@@ -1,0 +1,10 @@
+Package: parallelGroupBy
+Type: Package
+Title: Attempts at making group by parallel
+Version: 0.0
+Author: Romain Francois <romain@r-enthusiasts.com>
+Maintainer: Romain Francois <romain@r-enthusiasts.com>
+Description: Attempts at making group by parallel
+Depends: R (>= 3.0.2), Rcpp, RcppParallel, BH, microbenchmark, dplyr
+LinkingTo: Rcpp, RcppParallel, BH
+
