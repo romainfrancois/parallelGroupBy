@@ -1,7 +1,7 @@
 #include <parallelGroupBy.h> 
 
 // [[Rcpp::export]]
-List group_by_impl1_serial( DataFrame data, CharacterVector by ){
+List make_index_impl1_serial( DataFrame data, CharacterVector by ){
     // TimeTracker tracker ;
     // tracker.step("start") ;
     

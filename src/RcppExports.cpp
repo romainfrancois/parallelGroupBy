@@ -6,16 +6,16 @@
 
 using namespace Rcpp;
 
-// group_by_impl1_serial
-List group_by_impl1_serial(DataFrame data, CharacterVector by);
-RcppExport SEXP parallelGroupBy_group_by_impl1_serial(SEXP dataSEXP, SEXP bySEXP) {
+// make_index_impl1_serial
+List make_index_impl1_serial(DataFrame data, CharacterVector by);
+RcppExport SEXP parallelGroupBy_make_index_impl1_serial(SEXP dataSEXP, SEXP bySEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< DataFrame >::type data(dataSEXP );
         Rcpp::traits::input_parameter< CharacterVector >::type by(bySEXP );
-        List __result = group_by_impl1_serial(data, by);
+        List __result = make_index_impl1_serial(data, by);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
