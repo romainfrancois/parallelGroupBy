@@ -44,7 +44,7 @@ public:
 
 
 // [[Rcpp::export]]
-List make_index3( DataFrame data, CharacterVector by ){
+List make_index_threads_unorderedmap_joinConcurrentMap( DataFrame data, CharacterVector by ){
     using namespace tthread;
       
     IndexRange inputRange(0, data.nrows());

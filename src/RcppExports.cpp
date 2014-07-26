@@ -6,38 +6,6 @@
 
 using namespace Rcpp;
 
-// make_index6
-List make_index6(DataFrame data, CharacterVector by);
-RcppExport SEXP parallelGroupBy_make_index6(SEXP dataSEXP, SEXP bySEXP) {
-BEGIN_RCPP
-    SEXP __sexp_result;
-    {
-        Rcpp::RNGScope __rngScope;
-        Rcpp::traits::input_parameter< DataFrame >::type data(dataSEXP );
-        Rcpp::traits::input_parameter< CharacterVector >::type by(bySEXP );
-        List __result = make_index6(data, by);
-        PROTECT(__sexp_result = Rcpp::wrap(__result));
-    }
-    UNPROTECT(1);
-    return __sexp_result;
-END_RCPP
-}
-// make_index7
-List make_index7(DataFrame data, CharacterVector by);
-RcppExport SEXP parallelGroupBy_make_index7(SEXP dataSEXP, SEXP bySEXP) {
-BEGIN_RCPP
-    SEXP __sexp_result;
-    {
-        Rcpp::RNGScope __rngScope;
-        Rcpp::traits::input_parameter< DataFrame >::type data(dataSEXP );
-        Rcpp::traits::input_parameter< CharacterVector >::type by(bySEXP );
-        List __result = make_index7(data, by);
-        PROTECT(__sexp_result = Rcpp::wrap(__result));
-    }
-    UNPROTECT(1);
-    return __sexp_result;
-END_RCPP
-}
 // group_by_impl1_serial
 List group_by_impl1_serial(DataFrame data, CharacterVector by);
 RcppExport SEXP parallelGroupBy_group_by_impl1_serial(SEXP dataSEXP, SEXP bySEXP) {
@@ -86,16 +54,16 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
-// make_index3
-List make_index3(DataFrame data, CharacterVector by);
-RcppExport SEXP parallelGroupBy_make_index3(SEXP dataSEXP, SEXP bySEXP) {
+// make_index_threads_unorderedmap_joinConcurrentMap
+List make_index_threads_unorderedmap_joinConcurrentMap(DataFrame data, CharacterVector by);
+RcppExport SEXP parallelGroupBy_make_index_threads_unorderedmap_joinConcurrentMap(SEXP dataSEXP, SEXP bySEXP) {
 BEGIN_RCPP
     SEXP __sexp_result;
     {
         Rcpp::RNGScope __rngScope;
         Rcpp::traits::input_parameter< DataFrame >::type data(dataSEXP );
         Rcpp::traits::input_parameter< CharacterVector >::type by(bySEXP );
-        List __result = make_index3(data, by);
+        List __result = make_index_threads_unorderedmap_joinConcurrentMap(data, by);
         PROTECT(__sexp_result = Rcpp::wrap(__result));
     }
     UNPROTECT(1);
