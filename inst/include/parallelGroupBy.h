@@ -2,12 +2,12 @@
 #define parallelGroupBy_parallelGroupBy_H
 
 #include <Rcpp.h>
+#include <Rcpp/Benchmark/Timer.h>
 #include <RcppParallel.h>
 
 using namespace Rcpp ;
 using namespace RcppParallel;
 
-#include <TimeTracker.h>
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
 #include <mini_dplyr.h>

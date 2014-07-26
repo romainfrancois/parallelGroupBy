@@ -5,6 +5,10 @@ make_index_impl1_serial <- function(data, by) {
     .Call('parallelGroupBy_make_index_impl1_serial', PACKAGE = 'parallelGroupBy', data, by)
 }
 
+detail_make_index_impl1_serial <- function(data, by) {
+    .Call('parallelGroupBy_detail_make_index_impl1_serial', PACKAGE = 'parallelGroupBy', data, by)
+}
+
 make_index_parallel <- function(data, by) {
     .Call('parallelGroupBy_make_index_parallel', PACKAGE = 'parallelGroupBy', data, by)
 }
