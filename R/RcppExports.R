@@ -21,7 +21,15 @@ make_index_concurrent_hash_map <- function(data, by) {
     .Call('parallelGroupBy_make_index_concurrent_hash_map', PACKAGE = 'parallelGroupBy', data, by)
 }
 
+detail_make_index_concurrent_hash_map <- function(data, by) {
+    .Call('parallelGroupBy_detail_make_index_concurrent_hash_map', PACKAGE = 'parallelGroupBy', data, by)
+}
+
 make_index_threads_unorderedmap_joinConcurrentMap <- function(data, by) {
     .Call('parallelGroupBy_make_index_threads_unorderedmap_joinConcurrentMap', PACKAGE = 'parallelGroupBy', data, by)
+}
+
+detail_make_index_threads_unorderedmap_joinConcurrentMap <- function(data, by) {
+    .Call('parallelGroupBy_detail_make_index_threads_unorderedmap_joinConcurrentMap', PACKAGE = 'parallelGroupBy', data, by)
 }
 
