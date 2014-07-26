@@ -52,3 +52,26 @@ List make_index_concurrent_hash_map( DataFrame data, CharacterVector by ){
     return indexer.get() ;
 }
 
+// [[Rcpp::export]]
+List detail_make_index_concurrent_hash_map( DataFrame data, CharacterVector by ){
+    Timer timer ;
+    timer.step( "start" ) ;
+    int n = data.nrows() ;
+    
+    Visitors visitors(data, by) ;
+    VisitorSetHasher<Visitors> hasher(visitors) ; 
+    VisitorSetEqualPredicate<Visitors> equal(visitors) ;
+    ConcurrentMap map(1024, hasher, equal) ;
+    
+    IndexMaker2 indexer(map) ;
+    
+    parallelFor(0, n, indexer) ;
+    timer.step( "train and join" ) ;
+    
+    List res = indexer.get() ;
+    
+    timer.step( "structure" ) ;
+    
+    return List::create( (SEXP)timer, res ) ;
+}
+
