@@ -54,6 +54,22 @@ BEGIN_RCPP
     return __sexp_result;
 END_RCPP
 }
+// detail_make_index_parallel
+List detail_make_index_parallel(DataFrame data, CharacterVector by);
+RcppExport SEXP parallelGroupBy_detail_make_index_parallel(SEXP dataSEXP, SEXP bySEXP) {
+BEGIN_RCPP
+    SEXP __sexp_result;
+    {
+        Rcpp::RNGScope __rngScope;
+        Rcpp::traits::input_parameter< DataFrame >::type data(dataSEXP );
+        Rcpp::traits::input_parameter< CharacterVector >::type by(bySEXP );
+        List __result = detail_make_index_parallel(data, by);
+        PROTECT(__sexp_result = Rcpp::wrap(__result));
+    }
+    UNPROTECT(1);
+    return __sexp_result;
+END_RCPP
+}
 // make_index_concurrent_hash_map
 List make_index_concurrent_hash_map(DataFrame data, CharacterVector by);
 RcppExport SEXP parallelGroupBy_make_index_concurrent_hash_map(SEXP dataSEXP, SEXP bySEXP) {

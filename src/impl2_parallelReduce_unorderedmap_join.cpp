@@ -60,3 +60,23 @@ List make_index_parallel( DataFrame data, CharacterVector by ){
     return indexer.get() ;
 }
 
+// [[Rcpp::export]]
+List detail_make_index_parallel( DataFrame data, CharacterVector by ){
+    Timer timer ;
+    timer.step("start") ;
+    
+    int n = data.nrows() ;
+    
+    Visitors visitors(data, by) ;
+    IndexMaker indexer(visitors) ;
+    
+    parallelReduce(0, n, indexer) ;
+    timer.step( "train and join" ) ;
+    
+    List res = indexer.get() ;
+    
+    timer.step( "structure" ) ;
+    
+    return List::create( (SEXP)timer, res ) ;
+}
+
