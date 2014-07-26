@@ -1,7 +1,5 @@
 #include <parallelGroupBy.h> 
 
-// ----------- using manual threads 1
-
 typedef tbb::concurrent_unordered_map<
   int, 
   tbb::concurrent_vector<const std::vector<int>*>, 
@@ -9,13 +7,6 @@ typedef tbb::concurrent_unordered_map<
   VisitorSetEqualPredicate<Visitors>
 > MergeMap ;
 
-
-template <typename Work>
-inline void index3_thread( void* data ){
-    Work* work = reinterpret_cast<Work*>(data) ;
-    work->process() ;    
-}
-       
 struct Index3Thread {
 public: 
     IndexRange range ;
@@ -61,7 +52,7 @@ List make_index_threads_unorderedmap_joinConcurrentMap( DataFrame data, Characte
     for (std::size_t i = 0; i<ranges.size(); ++i) {
         Index3Thread* w = new Index3Thread(ranges[i], data, by, merge_map) ;
         workers.push_back(w) ;
-        threads.push_back(new thread(index3_thread<Index3Thread>, w));   
+        threads.push_back(new thread(process_thread<Index3Thread>, w));   
     }
     
     for (std::size_t i = 0; i<threads.size(); ++i) {

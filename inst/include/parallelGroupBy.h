@@ -47,5 +47,11 @@ typedef boost::unordered_map<int, std::vector<int>,
     DummyHasher, 
     VisitorSetEqualPredicate<Visitors> > Map2 ;
 
+template <typename Work>
+inline void process_thread( void* data ){
+    Work* work = reinterpret_cast<Work*>(data) ;
+    work->process() ;    
+}
+       
     
 #endif
