@@ -144,7 +144,7 @@ List detail_make_index_threads_unorderedmap_joinConcurrentMap( DataFrame data, C
     }
     timer.step( "spawn" ) ;
     
-    for (std::size_t i = 0; i<threads.size(); ++i) {
+    for (std::size_t i = 0; i<nthreads; ++i) {
        threads[i]->join();
        timer.step( "join" ) ;
     }
