@@ -24,7 +24,7 @@ List make_index_impl1_serial( DataFrame data, CharacterVector by ){
 
 // [[Rcpp::export]]
 List detail_make_index_impl1_serial( DataFrame data, CharacterVector by ){
-    Timer timer ;
+    SingleTimer<Timer> timer ;
     timer.step("start") ;
     
     int n = data.nrows() ;

@@ -8,7 +8,7 @@ benchmark_make_index <- function(data, by, ...){
   )
 }
 
-details_make_index <- function(data, by, ...){
+detail_make_index <- function(data, by, ...){
   timings <- list( 
     serial = detail_make_index_impl1_serial(data, by)[[1]], 
     parallelReduce = detail_make_index_parallel(data, by)[[1]],

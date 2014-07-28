@@ -125,8 +125,8 @@ List detail_make_index_threads_unorderedmap_joinConcurrentMap( DataFrame data, C
     std::vector<IndexRange> ranges = splitInputRange(inputRange, 1);
     
     int nthreads = ranges.size() ;
-    std::vector<Timer> timers( nthreads + 1 ) ;
-    Timer& timer = timers[0] ;
+    FixedSizeTimers<Timer> timers(nthreads+1) ;
+    Timer& timer = timers.get(0) ;
     timer.step( "start" );
     
     Visitors visitors(data, by);
@@ -138,7 +138,7 @@ List detail_make_index_threads_unorderedmap_joinConcurrentMap( DataFrame data, C
     std::vector<thread*> threads;
     std::vector<inst_Index3Thread*> workers ;
     for (std::size_t i = 0; i<ranges.size(); ++i) {
-        inst_Index3Thread* w = new inst_Index3Thread(ranges[i], data, by, merge_map, timers[i+1] ) ;
+        inst_Index3Thread* w = new inst_Index3Thread(ranges[i], data, by, merge_map, timers.get(i+1) ) ;
         workers.push_back(w) ;
         threads.push_back(new thread(process_thread<inst_Index3Thread>, w));   
     }
@@ -171,9 +171,9 @@ List detail_make_index_threads_unorderedmap_joinConcurrentMap( DataFrame data, C
        delete threads[i];
        delete workers[i];
     }
-    timer.step( "join" ) ;
+    timer.step( "structure" ) ;
     
-    return List::create( wrap(timers), out ) ;
+    return List::create( (SEXP)timers, out ) ;
 }
 
 

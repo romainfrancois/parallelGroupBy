@@ -52,6 +52,7 @@ inline void process_thread( void* data ){
     Work* work = reinterpret_cast<Work*>(data) ;
     work->process() ;    
 }
-       
+  
+typedef TimersList<Timer, tbb::mutex, tbb::mutex::scoped_lock > Timers ;
     
 #endif

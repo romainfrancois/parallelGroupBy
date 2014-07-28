@@ -52,9 +52,50 @@ List make_index_concurrent_hash_map( DataFrame data, CharacterVector by ){
     return indexer.get() ;
 }
 
+struct TimedIndexMaker2 : public Worker {
+    ConcurrentMap& map ;
+    Timers& timers ;
+    Timer& timer ;
+    
+    TimedIndexMaker2( ConcurrentMap& map_, Timers& timers_ ) : 
+        map(map_), timers(timers_), timer(timers.get_new_timer()) 
+    {}
+        
+    TimedIndexMaker2( const TimedIndexMaker2& other, Split) : 
+        map(other.map), timers(other.timers), timer(timers.get_new_timer()) 
+    {}
+        
+    void operator()(std::size_t begin, std::size_t end) {
+        timer.step( "start") ;
+        for( size_t i =begin; i<end; i++) {
+            map[i].push_back(i) ;
+        }
+        timer.step("train") ;
+    }
+    
+    List get(){
+        timer.step( "start" ) ;
+        int ngroups = map.size() ;
+        List indices(ngroups) ;
+        
+        ConcurrentMap::const_iterator it = map.begin() ;
+        for( int i=0; i<ngroups; i++, ++it){
+            indices[i] = wrap( it->second.begin(), it->second.end() ) ;
+        }
+        timer.step("structure");
+        return indices ;
+        
+    }
+    
+    void join( const TimedIndexMaker2& ){}
+    
+} ;
+
+
 // [[Rcpp::export]]
 List detail_make_index_concurrent_hash_map( DataFrame data, CharacterVector by ){
-    Timer timer ;
+    Timers timers ;
+    Timer& timer = timers.get_new_timer() ;
     timer.step( "start" ) ;
     int n = data.nrows() ;
     
@@ -63,15 +104,16 @@ List detail_make_index_concurrent_hash_map( DataFrame data, CharacterVector by )
     VisitorSetEqualPredicate<Visitors> equal(visitors) ;
     ConcurrentMap map(1024, hasher, equal) ;
     
-    IndexMaker2 indexer(map) ;
+    TimedIndexMaker2 indexer(map, timers) ;
     
-    parallelFor(0, n, indexer) ;
-    timer.step( "train and join" ) ;
+    // for some reason I get segfaults with parallelFor
+    parallelReduce(0, n, indexer) ;
+    timer.step( "parallelReduce" ) ;
     
     List res = indexer.get() ;
     
     timer.step( "structure" ) ;
     
-    return List::create( (SEXP)timer, res ) ;
+    return List::create( (SEXP)timers, res ) ;
 }
 

@@ -1,5 +1,5 @@
 PKG_CPPFLAGS += -I../inst/include/
 
 # turning of -Wall -pedantic from devtools
-PKG_CXXFLAGS = -O3
+PKG_CXXFLAGS = -g -O3
 
