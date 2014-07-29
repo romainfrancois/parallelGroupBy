@@ -62,11 +62,12 @@ List make_index_parallel( DataFrame data, CharacterVector by ){
  
 // [[Rcpp::export]]
 List detail_make_index_parallel( DataFrame data, CharacterVector by ){
+    int n = data.nrows() ;
+    
     Timers timers ;
     ProportionTimer<Timer>& timer = timers.get_new_timer() ;
     timer.step("start") ;
-    
-    int n = data.nrows() ;
+    timer.n = n ;
     
     Visitors visitors(data, by) ;  
     
