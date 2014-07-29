@@ -33,6 +33,8 @@ struct IndexMaker2 : public Worker {
         
     }
     
+    void join(const IndexMaker2& ){}
+    
 } ;
 
 // [[Rcpp::export]]
@@ -67,7 +69,7 @@ List detail_make_index_concurrent_hash_map( DataFrame data, CharacterVector by )
     IndexMaker2 indexer(map) ;
     TimedReducer<IndexMaker2, Timer, tbb::mutex, tbb::mutex::scoped_lock> timed_indexer(indexer, timers) ;
                       
-    parallelFor(0, n, timed_indexer, 1000) ;
+    parallelReduce(0, n, timed_indexer, 1000) ;
     timer.step( "parallelReduce" ) ;
     List out = timed_indexer.get() ;
     timer.step( "structure" );

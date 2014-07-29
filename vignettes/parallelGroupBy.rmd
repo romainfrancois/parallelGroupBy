@@ -1,6 +1,7 @@
 ```{r,print=FALSE,echo=FALSE}
 library("parallelGroupBy")
 library("TimerPlot")
+library("babynames")
 data <- babynames
 ```
 
