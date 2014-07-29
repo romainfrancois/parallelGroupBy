@@ -53,6 +53,6 @@ inline void process_thread( void* data ){
     work->process() ;    
 }
   
-typedef TimersList<ProportionTimer<Timer>, tbb::mutex, tbb::mutex::scoped_lock > Timers ;
+typedef TimersList<Timer, tbb::mutex, tbb::mutex::scoped_lock > Timers ;
     
 #endif

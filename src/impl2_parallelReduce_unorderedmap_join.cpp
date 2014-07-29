@@ -65,7 +65,7 @@ List detail_make_index_parallel( DataFrame data, CharacterVector by ){
     int n = data.nrows() ;
     
     Timers timers ;
-    ProportionTimer<Timer>& timer = timers.get_new_timer() ;
+    ProportionTimer<Timer>& timer = timers.front() ;
     timer.step("start") ;
     timer.n = n ;
     
