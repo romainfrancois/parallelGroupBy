@@ -44,7 +44,7 @@ List detail_make_index_impl1_serial( DataFrame data, CharacterVector by ){
     for( int i=0; i<ngroups; i++, ++it){
         indices[i] = it->second ;
     }
-    timer.step("collect") ;
+    timer.step("structure") ;
     
     return List::create( (SEXP)timer, indices ) ;
 }

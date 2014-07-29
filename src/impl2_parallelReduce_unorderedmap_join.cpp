@@ -59,81 +59,21 @@ List make_index_parallel( DataFrame data, CharacterVector by ){
     
     return indexer.get() ;
 }
-    
-struct TimedIndexMaker : public Worker {
-    Visitors& visitors ;
-    VisitorSetHasher<Visitors> hasher ; 
-    VisitorSetEqualPredicate<Visitors> equal ;
-    Map map ;
-    Timers& timers ;
-    Timer& timer ;
-    
-    TimedIndexMaker( Visitors& visitors_, Timers& timers_ ) : 
-        visitors(visitors_), 
-        hasher(visitors), 
-        equal(visitors), 
-        map(1024, hasher, equal),
-        timers(timers_),
-        timer(timers.get_new_timer())
-    {}
-    
-    TimedIndexMaker( const TimedIndexMaker& other, Split) : 
-        visitors(other.visitors), 
-        hasher(visitors), 
-        equal(visitors), 
-        map(1024, hasher, equal), 
-        timers(other.timers), 
-        timer(timers.get_new_timer())
-    {}
-        
-    void operator()(std::size_t begin, std::size_t end) {
-        timer.step( "start" );
-        for( size_t i =begin; i<end; i++) map[i].push_back(i) ;
-        timer.step( "train" ) ;
-    }
-    
-    void join(const TimedIndexMaker& rhs) {
-        timer.step( "start" ) ;
-        // join data from rhs into this. 
-        Map::const_iterator it = rhs.map.begin() ;
-        for( ; it != rhs.map.end(); ++it ){
-            // find if it exist in this map
-            std::vector<int>& v = map[it->first] ;
-            
-            v.insert( v.end(), it->second.begin(), it->second.end() ) ;
-        }
-        timer.step( "join" ) ;
-    }
-    
-    List get(){
-        timer.step( "start" ) ;
-        int ngroups = map.size() ;
-        List indices(ngroups) ;
-        
-        Map::const_iterator it = map.begin() ;
-        for( int i=0; i<ngroups; i++, ++it){
-            indices[i] = it->second ;
-        }
-        timer.step( "structure" ) ;
-        
-        return indices ;
-    }
-    
-} ;
-
-
+ 
 // [[Rcpp::export]]
 List detail_make_index_parallel( DataFrame data, CharacterVector by ){
     Timers timers ;
-    Timer& timer = timers.get_new_timer() ;
+    ProportionTimer<Timer>& timer = timers.get_new_timer() ;
     timer.step("start") ;
     
     int n = data.nrows() ;
     
-    Visitors visitors(data, by) ;
-    TimedIndexMaker indexer(visitors, timers) ;
+    Visitors visitors(data, by) ;  
     
-    parallelReduce(0, n, indexer) ;
+    IndexMaker indexer(visitors) ;
+    TimedReducer<IndexMaker, Timer, tbb::mutex, tbb::mutex::scoped_lock> timed_indexer(indexer, timers) ;
+    
+    parallelReduce(0, n, timed_indexer, 100) ;
     timer.step( "parallelReduce" ) ;
     
     List res = indexer.get() ;
@@ -142,4 +82,6 @@ List detail_make_index_parallel( DataFrame data, CharacterVector by ){
     
     return List::create( (SEXP)timers, res ) ;
 }
+
+
 
