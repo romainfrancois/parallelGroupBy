@@ -63,11 +63,7 @@ List make_index_parallel( DataFrame data, CharacterVector by ){
 // [[Rcpp::export]]
 List detail_make_index_parallel( DataFrame data, CharacterVector by ){
     int n = data.nrows() ;
-    
-    Timers timers ;
-    ProportionTimer<Timer>& timer = timers.front() ;
-    timer.step("start") ;
-    timer.n = n ;
+    Timers timers(n);
     
     Visitors visitors(data, by) ;  
     
@@ -75,13 +71,8 @@ List detail_make_index_parallel( DataFrame data, CharacterVector by ){
     TimedReducer<IndexMaker, Timer, tbb::mutex, tbb::mutex::scoped_lock> timed_indexer(indexer, timers) ;
     
     parallelReduce(0, n, timed_indexer, 100) ;
-    timer.step( "parallelReduce" ) ;
+    return timed_indexer.get() ;
     
-    List res = indexer.get() ;
-    
-    timer.step( "structure" ) ;
-    
-    return List::create( (SEXP)timers, res ) ;
 }
 
 

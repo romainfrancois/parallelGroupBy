@@ -93,9 +93,9 @@ public:
     VisitorSetEqualPredicate<Visitors> equal ;
     Map map ;
     MergeMap& merge_map ;
-    Timer& timer ;
+    ProportionTimer<Timer>& timer ;
     
-    inst_Index3Thread( IndexRange range_, DataFrame data, CharacterVector by, MergeMap& merge_map_, Timer& timer_ ) : 
+    inst_Index3Thread( IndexRange range_, DataFrame data, CharacterVector by, MergeMap& merge_map_, ProportionTimer<Timer>& timer_ ) : 
         range(range_), visitors(data, by), hasher(visitors), equal(visitors), 
         map(1024, hasher, visitors), 
         merge_map(merge_map_), 
@@ -107,6 +107,7 @@ public:
         for( size_t i = range.begin(); i<e; i++) map[i].push_back(i) ;   
         timer.step( "train" ) ;
         
+        timer.step( "start" ) ;
         Map::const_iterator it = map.begin() ;
         Map::const_iterator end = map.end() ;
         for( ; it != end ; ++it ){
@@ -121,12 +122,15 @@ public:
 List detail_make_index_threads_unorderedmap_joinConcurrentMap( DataFrame data, CharacterVector by ){
     using namespace tthread;
       
+    int n = data.nrows() ;
     IndexRange inputRange(0, data.nrows());
     std::vector<IndexRange> ranges = splitInputRange(inputRange, 1);
     
     int nthreads = ranges.size() ;
-    FixedSizeTimers<Timer> timers(nthreads+1) ;
-    Timer& timer = timers.get(0) ;
+    FixedSizeTimers<Timer> timers(nthreads+1, n) ;
+    timers[0].n = n ;
+    for( int i=0; i<nthreads; i++) timers[i+1].n = ranges[i].size() ;
+    ProportionTimer<Timer> & timer = timers.get(0) ;
     timer.step( "start" );
     
     Visitors visitors(data, by);

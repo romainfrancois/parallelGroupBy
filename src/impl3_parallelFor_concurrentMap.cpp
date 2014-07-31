@@ -56,10 +56,8 @@ List make_index_concurrent_hash_map( DataFrame data, CharacterVector by ){
 
 // [[Rcpp::export]]
 List detail_make_index_concurrent_hash_map( DataFrame data, CharacterVector by ){
-    Timers timers ;
-    ProportionTimer<Timer>& timer = timers.front() ;
-    timer.step( "start" ) ;
     int n = data.nrows() ;
+    Timers timers(n) ;
     
     Visitors visitors(data, by) ;
     VisitorSetHasher<Visitors> hasher(visitors) ; 
@@ -70,9 +68,8 @@ List detail_make_index_concurrent_hash_map( DataFrame data, CharacterVector by )
     TimedReducer<IndexMaker2, Timer, tbb::mutex, tbb::mutex::scoped_lock> timed_indexer(indexer, timers) ;
                       
     parallelReduce(0, n, timed_indexer, 1000) ;
-    timer.step( "parallelReduce" ) ;
-    List out = timed_indexer.get() ;
-    timer.step( "structure" );
-    return out ;
+    
+    return timed_indexer.get() ;
+    
 }
 
